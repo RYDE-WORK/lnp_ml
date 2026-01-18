@@ -1,0 +1,26 @@
+[workspace]
+authors = ["RYDE-WORK <rydewu@primedigitaltech.com>"]
+channels = ["conda-forge"]
+name = "LNP_ML"
+platforms = ["linux-64", "osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+loguru = "*"
+ruff = "*"
+tqdm = "*"
+typer = "*"
+pip = "*"
+python = "3.8.*"
+
+[pypi-dependencies]
+lnp_ml = { path = ".", editable = true }
+chemprop = "==1.7.0"
+setuptools = "*"
+pandas = ">=2.0.3, <3"
+openpyxl = ">=3.1.5, <4"
+python-dotenv = ">=1.0.1, <2"
+pyarrow = ">=17.0.0, <18"
+fastparquet = ">=2024.2.0, <2025"
