@@ -84,7 +84,12 @@ FREEZE_FLAG = $(if $(FREEZE_BACKBONE),--freeze-backbone,)
 ## Pretrain on external data (delivery only)
 .PHONY: pretrain
 pretrain: requirements
-	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.pretrain $(MPNN_FLAG)
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.pretrain main $(MPNN_FLAG)
+
+## Evaluate pretrain model (delivery metrics)
+.PHONY: test_pretrain
+test_pretrain: requirements
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.pretrain test $(MPNN_FLAG)
 
 ## Train model (multi-task, from scratch)
 .PHONY: train
