@@ -68,15 +68,38 @@ clean_data: requirements
 data: requirements
 	$(PYTHON_INTERPRETER) scripts/process_data.py
 
-## Train model
+## Process external data for pretrain (external -> processed)
+.PHONY: data_pretrain
+data_pretrain: requirements
+	$(PYTHON_INTERPRETER) scripts/process_external.py
+
+# MPNN 支持：使用 USE_MPNN=1 启用 MPNN encoder
+# 例如：make pretrain USE_MPNN=1
+MPNN_FLAG = $(if $(USE_MPNN),--use-mpnn,)
+
+# Backbone 冻结：使用 FREEZE_BACKBONE=1 冻结 backbone，只训练 heads
+# 例如：make finetune FREEZE_BACKBONE=1
+FREEZE_FLAG = $(if $(FREEZE_BACKBONE),--freeze-backbone,)
+
+## Pretrain on external data (delivery only)
+.PHONY: pretrain
+pretrain: requirements
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.pretrain $(MPNN_FLAG)
+
+## Train model (multi-task, from scratch)
 .PHONY: train
 train: requirements
-	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train $(MPNN_FLAG)
+
+## Finetune from pretrained checkpoint (use FREEZE_BACKBONE=1 to freeze backbone)
+.PHONY: finetune
+finetune: requirements
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train --init-from-pretrain models/pretrain_delivery.pt $(FREEZE_FLAG) $(MPNN_FLAG)
 
 ## Train with hyperparameter tuning
 .PHONY: tune
 tune: requirements
-	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train --tune
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train --tune $(MPNN_FLAG)
 
 ## Run predictions
 .PHONY: predict

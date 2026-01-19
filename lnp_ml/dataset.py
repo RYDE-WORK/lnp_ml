@@ -346,3 +346,185 @@ def load_dataset(
         LNPDataset(val_df, config),
         LNPDataset(test_df, config),
     )
+
+
+# ============ 外部数据（仅 delivery）处理 ============
+
+# 外部数据中 Value_name 的值映射（空格 -> 下划线）
+EXTERNAL_VALUE_NAME_MAP = {
+    "log luminescence": "log_luminescence",
+    "Luminescence": "luminescence",
+    "FFL silencing": "FFL_silencing",
+    "Peptide abundance": "Peptide_abundance",
+    "hEPO": "hEPO",
+    "FVII silencing": "FVII_silencing",
+    "GFP delivery": "GFP_delivery",
+    "Discretized luminescence": "Discretized_luminescence",
+}
+
+# 外部数据中 Mix_type 的值映射
+EXTERNAL_MIX_TYPE_MAP = {
+    "Hand": "Pipetting",  # 外部数据用 "Hand" 表示 "Pipetting"
+    "Microfluidic": "Microfluidic",
+    "Pipetting": "Pipetting",
+}
+
+
+def process_external_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    处理外部 LiON 数据的 DataFrame，对齐到模型所需的列格式。
+    
+    与 process_dataframe 类似，但针对外部数据的列名差异做适配：
+    - Value_name 值中的空格需要转为下划线
+    - Mix_type 中 "Hand" 需要映射为 "Pipetting"
+    """
+    df = df.copy()
+    
+    # 1. 预处理：映射 Value_name 和 Mix_type 的值
+    if "Value_name" in df.columns:
+        df["Value_name"] = df["Value_name"].map(
+            lambda x: EXTERNAL_VALUE_NAME_MAP.get(x, x) if pd.notna(x) else x
+        )
+    
+    if "Mix_type" in df.columns:
+        df["Mix_type"] = df["Mix_type"].map(
+            lambda x: EXTERNAL_MIX_TYPE_MAP.get(x, x) if pd.notna(x) else x
+        )
+    
+    # 2. 处理 phys token 的 one-hot 列（如果不存在则从原始列生成）
+    for col, values in PHYS_ONEHOT_SPECS.items():
+        for v in values:
+            onehot_col = f"{col}_{v}"
+            if onehot_col not in df.columns:
+                if col in df.columns:
+                    df[onehot_col] = (df[col] == v).astype(float)
+                else:
+                    df[onehot_col] = 0.0
+    
+    # 3. 处理 exp token 的 one-hot 列
+    # 外部数据部分列已存在（如 Model_type_*, Delivery_target_* 等），但可能缺失某些类别
+    for col, values in EXP_ONEHOT_SPECS.items():
+        for v in values:
+            onehot_col = f"{col}_{v}"
+            if onehot_col not in df.columns:
+                if col in df.columns:
+                    df[onehot_col] = (df[col] == v).astype(float)
+                else:
+                    df[onehot_col] = 0.0
+            else:
+                # 确保是 float 类型
+                df[onehot_col] = df[onehot_col].fillna(0.0).astype(float)
+    
+    # 4. 确保 comp 列存在且为 float
+    for col in COMP_COLS:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
+        else:
+            df[col] = 0.0
+    
+    # 5. 确保 help 列存在
+    for col in HELP_COLS:
+        if col not in df.columns:
+            df[col] = 0.0
+        else:
+            df[col] = df[col].fillna(0.0).astype(float)
+    
+    # 6. 处理 quantified_delivery
+    if "quantified_delivery" in df.columns:
+        df["quantified_delivery"] = pd.to_numeric(df["quantified_delivery"], errors="coerce")
+    
+    return df
+
+
+class ExternalDeliveryDataset(Dataset):
+    """
+    外部 LiON 数据集，仅用于 delivery 预训练。
+    
+    返回:
+        - smiles: str
+        - tabular: Dict[str, Tensor] with keys "comp", "phys", "help", "exp"
+        - targets: Dict[str, Tensor] with key "delivery"
+        - mask: Dict[str, Tensor] with key "delivery"
+    """
+    
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        config: Optional[LNPDatasetConfig] = None,
+    ):
+        self.config = config or LNPDatasetConfig()
+        self.df = process_external_dataframe(df)
+        
+        # 提取数据
+        self.smiles = self.df[SMILES_COL].tolist()
+        
+        # Tabular features
+        self.comp = self.df[self.config.comp_cols].values.astype(np.float32)
+        self.phys = self.df[self.config.phys_cols].values.astype(np.float32)
+        self.help = self.df[self.config.help_cols].values.astype(np.float32)
+        self.exp = self.df[self.config.exp_cols].values.astype(np.float32)
+        
+        # 只有 delivery 作为 target
+        self.delivery = self.df["quantified_delivery"].values.astype(np.float32) if "quantified_delivery" in self.df.columns else None
+    
+    def __len__(self) -> int:
+        return len(self.smiles)
+    
+    def __getitem__(self, idx: int) -> Dict:
+        item = {
+            "smiles": self.smiles[idx],
+            "tabular": {
+                "comp": torch.from_numpy(self.comp[idx]),
+                "phys": torch.from_numpy(self.phys[idx]),
+                "help": torch.from_numpy(self.help[idx]),
+                "exp": torch.from_numpy(self.exp[idx]),
+            },
+            "targets": {},
+            "mask": {},
+        }
+        
+        # delivery target and mask
+        if self.delivery is not None:
+            item["targets"]["delivery"] = torch.tensor(self.delivery[idx], dtype=torch.float32)
+            item["mask"]["delivery"] = torch.tensor(not np.isnan(self.delivery[idx]), dtype=torch.bool)
+        
+        return item
+
+
+def load_external_dataset(
+    path: Path,
+    train_ratio: float = 0.9,
+    seed: int = 42,
+) -> Tuple[ExternalDeliveryDataset, ExternalDeliveryDataset]:
+    """
+    加载外部 LiON 数据集并划分为 train/val。
+    
+    Args:
+        path: CSV 文件路径
+        train_ratio: 训练集比例（剩余为验证集）
+        seed: 随机种子
+        
+    Returns:
+        (train_dataset, val_dataset)
+    """
+    df = pd.read_csv(path)
+    
+    # 过滤掉 quantified_delivery 为空的行
+    if "quantified_delivery" in df.columns:
+        df = df[df["quantified_delivery"].notna()].reset_index(drop=True)
+    
+    # 随机打乱
+    df = df.sample(frac=1, random_state=seed).reset_index(drop=True)
+    
+    n = len(df)
+    n_train = int(n * train_ratio)
+    
+    train_df = df.iloc[:n_train]
+    val_df = df.iloc[n_train:]
+    
+    config = LNPDatasetConfig()
+    
+    return (
+        ExternalDeliveryDataset(train_df, config),
+        ExternalDeliveryDataset(val_df, config),
+    )

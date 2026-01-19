@@ -1,7 +1,7 @@
 """预测脚本：使用训练好的模型进行推理"""
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import pandas as pd
 import torch
@@ -11,25 +11,63 @@ import typer
 
 from lnp_ml.config import MODELS_DIR, PROCESSED_DATA_DIR
 from lnp_ml.dataset import LNPDataset, collate_fn
-from lnp_ml.modeling.models import LNPModelWithoutMPNN
+from lnp_ml.modeling.models import LNPModel, LNPModelWithoutMPNN
 
 
 app = typer.Typer()
 
+# MPNN ensemble 默认路径
+DEFAULT_MPNN_ENSEMBLE_DIR = MODELS_DIR / "mpnn" / "all_amine_split_for_LiON"
 
-def load_model(model_path: Path, device: torch.device) -> LNPModelWithoutMPNN:
-    """加载训练好的模型"""
+
+def find_mpnn_ensemble_paths(base_dir: Path = DEFAULT_MPNN_ENSEMBLE_DIR) -> List[str]:
+    """自动查找 MPNN ensemble 的 model.pt 文件。"""
+    model_paths = sorted(base_dir.glob("cv_*/fold_*/model_*/model.pt"))
+    if not model_paths:
+        raise FileNotFoundError(f"No model.pt files found in {base_dir}")
+    return [str(p) for p in model_paths]
+
+
+def load_model(
+    model_path: Path,
+    device: torch.device,
+    mpnn_device: str = "cpu",
+) -> Union[LNPModel, LNPModelWithoutMPNN]:
+    """
+    加载训练好的模型。
+    
+    自动根据 checkpoint 的 config.use_mpnn 选择模型类型。
+    """
     checkpoint = torch.load(model_path, map_location=device)
     config = checkpoint["config"]
+    use_mpnn = config.get("use_mpnn", False)
     
-    model = LNPModelWithoutMPNN(
-        d_model=config["d_model"],
-        num_heads=config["num_heads"],
-        n_attn_layers=config["n_attn_layers"],
-        fusion_strategy=config["fusion_strategy"],
-        head_hidden_dim=config["head_hidden_dim"],
-        dropout=config["dropout"],
-    )
+    if use_mpnn:
+        # 自动查找 MPNN ensemble
+        logger.info("Model was trained with MPNN, auto-detecting ensemble...")
+        ensemble_paths = find_mpnn_ensemble_paths()
+        logger.info(f"Found {len(ensemble_paths)} MPNN models")
+        
+        model = LNPModel(
+            d_model=config["d_model"],
+            num_heads=config["num_heads"],
+            n_attn_layers=config["n_attn_layers"],
+            fusion_strategy=config["fusion_strategy"],
+            head_hidden_dim=config["head_hidden_dim"],
+            dropout=config["dropout"],
+            mpnn_ensemble_paths=ensemble_paths,
+            mpnn_device=mpnn_device,
+        )
+    else:
+        model = LNPModelWithoutMPNN(
+            d_model=config["d_model"],
+            num_heads=config["num_heads"],
+            n_attn_layers=config["n_attn_layers"],
+            fusion_strategy=config["fusion_strategy"],
+            head_hidden_dim=config["head_hidden_dim"],
+            dropout=config["dropout"],
+        )
+    
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)
     model.eval()
@@ -43,7 +81,7 @@ def load_model(model_path: Path, device: torch.device) -> LNPModelWithoutMPNN:
 
 @torch.no_grad()
 def predict_batch(
-    model: LNPModelWithoutMPNN,
+    model: Union[LNPModel, LNPModelWithoutMPNN],
     loader: DataLoader,
     device: torch.device,
 ) -> Dict[str, List]:

@@ -43,7 +43,13 @@ class RDKitFeaturizer:
         return np.array(MACCSkeys.GenMACCSKeys(mol).ToList(), dtype=np.float32)
     
     def _encode_desc(self, mol: Chem.Mol) -> np.ndarray:
-        return np.array(list(Descriptors.CalcMolDescriptors(mol).values()), dtype=np.float32)
+        # 使用 float64 计算，然后 clip 到 float32 范围，避免 overflow
+        desc_values = list(Descriptors.CalcMolDescriptors(mol).values())
+        arr = np.array(desc_values, dtype=np.float64)
+        # 替换 inf/nan，clip 到 float32 范围
+        arr = np.nan_to_num(arr, nan=0.0, posinf=1e10, neginf=-1e10)
+        arr = np.clip(arr, -1e10, 1e10)
+        return arr.astype(np.float32)
 
     def _encode_one(self, smiles: str) -> Dict[str, np.ndarray]:
         mol = Chem.MolFromSmiles(smiles)

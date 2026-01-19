@@ -121,28 +121,16 @@ class LNPModel(nn.Module):
             dropout=dropout,
         )
 
-    def forward(
+    def _encode_and_project(
         self,
         smiles: List[str],
         tabular: Dict[str, torch.Tensor],
-    ) -> Dict[str, torch.Tensor]:
+    ) -> torch.Tensor:
         """
-        Args:
-            smiles: SMILES 字符串列表，长度为 B
-            tabular: Dict[str, Tensor]，包含:
-                - "comp": [B, 5] 配方比例
-                - "phys": [B, 12] 物理参数
-                - "help": [B, 4] Helper lipid
-                - "exp": [B, 32] 实验条件
-
+        内部方法：编码 SMILES 和 tabular，返回 stacked tokens。
+        
         Returns:
-            Dict[str, Tensor]:
-                - "size": [B, 1]
-                - "pdi": [B, 4]
-                - "ee": [B, 3]
-                - "delivery": [B, 1]
-                - "biodist": [B, 7]
-                - "toxic": [B, 2]
+            stacked: [B, n_tokens, d_model]
         """
         # 1. Encode SMILES
         rdkit_features = self.rdkit_encoder(smiles)  # {"morgan", "maccs", "desc"}
@@ -170,23 +158,87 @@ class LNPModel(nn.Module):
         projected = self.token_projector(all_features)  # Dict[str, [B, d_model]]
 
         # 4. Stack tokens: [B, n_tokens, d_model]
-        # 按顺序 stack：Channel A (化学) + Channel B (配方/实验)
         if self.use_mpnn:
             token_order = ["mpnn", "morgan", "maccs", "desc", "comp", "phys", "help", "exp"]
         else:
             token_order = ["morgan", "maccs", "desc", "comp", "phys", "help", "exp"]
 
         stacked = torch.stack([projected[k] for k in token_order], dim=1)
+        return stacked
 
-        # 5. Cross Modal Attention
+    def forward_backbone(
+        self,
+        smiles: List[str],
+        tabular: Dict[str, torch.Tensor],
+    ) -> torch.Tensor:
+        """
+        Backbone forward：编码 -> 投影 -> 注意力 -> 融合，不经过任务头。
+        
+        用于 pretrain 阶段或需要提取特征的场景。
+        
+        Args:
+            smiles: SMILES 字符串列表，长度为 B
+            tabular: Dict[str, Tensor]
+            
+        Returns:
+            fused: [B, fusion_dim] 融合后的特征向量
+        """
+        # 编码 + 投影 + stack
+        stacked = self._encode_and_project(smiles, tabular)
+        
+        # Cross Modal Attention
         attended = self.cross_attention(stacked)
-
-        # 6. Fusion
+        
+        # Fusion
         fused = self.fusion(attended)
+        
+        return fused
 
-        # 7. Multi-Task Head
+    def forward_delivery(
+        self,
+        smiles: List[str],
+        tabular: Dict[str, torch.Tensor],
+    ) -> torch.Tensor:
+        """
+        仅预测 delivery（用于 pretrain）。
+        
+        Args:
+            smiles: SMILES 字符串列表，长度为 B
+            tabular: Dict[str, Tensor]
+            
+        Returns:
+            delivery: [B, 1] 预测的 delivery 值
+        """
+        fused = self.forward_backbone(smiles, tabular)
+        return self.head.delivery_head(fused)
+
+    def forward(
+        self,
+        smiles: List[str],
+        tabular: Dict[str, torch.Tensor],
+    ) -> Dict[str, torch.Tensor]:
+        """
+        完整的多任务 forward。
+        
+        Args:
+            smiles: SMILES 字符串列表，长度为 B
+            tabular: Dict[str, Tensor]，包含:
+                - "comp": [B, 5] 配方比例
+                - "phys": [B, 12] 物理参数
+                - "help": [B, 4] Helper lipid
+                - "exp": [B, 32] 实验条件
+
+        Returns:
+            Dict[str, Tensor]:
+                - "size": [B, 1]
+                - "pdi": [B, 4]
+                - "ee": [B, 3]
+                - "delivery": [B, 1]
+                - "biodist": [B, 7]
+                - "toxic": [B, 2]
+        """
+        fused = self.forward_backbone(smiles, tabular)
         outputs = self.head(fused)
-
         return outputs
 
     def clear_cache(self) -> None:
@@ -194,6 +246,69 @@ class LNPModel(nn.Module):
         self.rdkit_encoder.clear_cache()
         if self.mpnn_encoder is not None:
             self.mpnn_encoder.clear_cache()
+
+    def get_backbone_state_dict(self) -> Dict[str, torch.Tensor]:
+        """
+        获取 backbone 部分的 state_dict（不含任务头）。
+        
+        包含: token_projector, cross_attention, fusion
+        """
+        backbone_keys = []
+        for name in self.state_dict().keys():
+            if name.startswith(("token_projector.", "cross_attention.", "fusion.")):
+                backbone_keys.append(name)
+        
+        return {k: v for k, v in self.state_dict().items() if k in backbone_keys}
+
+    def get_delivery_head_state_dict(self) -> Dict[str, torch.Tensor]:
+        """获取 delivery head 的 state_dict"""
+        return {
+            k: v for k, v in self.state_dict().items()
+            if k.startswith("head.delivery_head.")
+        }
+
+    def load_pretrain_weights(
+        self,
+        pretrain_state_dict: Dict[str, torch.Tensor],
+        load_delivery_head: bool = True,
+        strict: bool = False,
+    ) -> None:
+        """
+        从预训练 checkpoint 加载 backbone 和（可选）delivery head 权重。
+        
+        Args:
+            pretrain_state_dict: 预训练模型的 state_dict
+            load_delivery_head: 是否加载 delivery head 权重
+            strict: 是否严格匹配（默认 False，允许缺失/多余的键）
+        """
+        # 筛选要加载的参数
+        keys_to_load = []
+        for name in pretrain_state_dict.keys():
+            # Backbone 部分
+            if name.startswith(("token_projector.", "cross_attention.", "fusion.")):
+                keys_to_load.append(name)
+            # Delivery head（可选）
+            elif load_delivery_head and name.startswith("head.delivery_head."):
+                keys_to_load.append(name)
+        
+        filtered_state_dict = {k: v for k, v in pretrain_state_dict.items() if k in keys_to_load}
+        
+        # 加载权重
+        missing, unexpected = [], []
+        model_state = self.state_dict()
+        for k, v in filtered_state_dict.items():
+            if k in model_state:
+                if model_state[k].shape == v.shape:
+                    model_state[k] = v
+                else:
+                    unexpected.append(f"{k} (shape mismatch: {model_state[k].shape} vs {v.shape})")
+            else:
+                unexpected.append(k)
+        
+        self.load_state_dict(model_state, strict=False)
+        
+        if strict and (missing or unexpected):
+            raise RuntimeError(f"Missing keys: {missing}, Unexpected keys: {unexpected}")
 
 
 class LNPModelWithoutMPNN(LNPModel):

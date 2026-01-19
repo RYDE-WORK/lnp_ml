@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Union
 
 import pandas as pd
 import torch
@@ -12,13 +12,28 @@ import typer
 
 from lnp_ml.config import MODELS_DIR, PROCESSED_DATA_DIR
 from lnp_ml.dataset import LNPDataset, collate_fn
-from lnp_ml.modeling.models import LNPModelWithoutMPNN
+from lnp_ml.modeling.models import LNPModel, LNPModelWithoutMPNN
 from lnp_ml.modeling.trainer import (
     train_epoch,
     validate,
     EarlyStopping,
     LossWeights,
 )
+
+# MPNN ensemble 默认路径
+DEFAULT_MPNN_ENSEMBLE_DIR = MODELS_DIR / "mpnn" / "all_amine_split_for_LiON"
+
+
+def find_mpnn_ensemble_paths(base_dir: Path = DEFAULT_MPNN_ENSEMBLE_DIR) -> List[str]:
+    """
+    自动查找 MPNN ensemble 的 model.pt 文件。
+    
+    在 base_dir 下查找所有 cv_*/fold_*/model_*/model.pt 文件。
+    """
+    model_paths = sorted(base_dir.glob("cv_*/fold_*/model_*/model.pt"))
+    if not model_paths:
+        raise FileNotFoundError(f"No model.pt files found in {base_dir}")
+    return [str(p) for p in model_paths]
 
 
 app = typer.Typer()
@@ -31,16 +46,35 @@ def create_model(
     fusion_strategy: str = "attention",
     head_hidden_dim: int = 128,
     dropout: float = 0.1,
-) -> LNPModelWithoutMPNN:
-    """创建模型"""
-    return LNPModelWithoutMPNN(
-        d_model=d_model,
-        num_heads=num_heads,
-        n_attn_layers=n_attn_layers,
-        fusion_strategy=fusion_strategy,
-        head_hidden_dim=head_hidden_dim,
-        dropout=dropout,
-    )
+    # MPNN 参数（可选）
+    mpnn_checkpoint: Optional[str] = None,
+    mpnn_ensemble_paths: Optional[List[str]] = None,
+    mpnn_device: str = "cpu",
+) -> Union[LNPModel, LNPModelWithoutMPNN]:
+    """创建模型（支持可选的 MPNN encoder）"""
+    use_mpnn = mpnn_checkpoint is not None or mpnn_ensemble_paths is not None
+    
+    if use_mpnn:
+        return LNPModel(
+            d_model=d_model,
+            num_heads=num_heads,
+            n_attn_layers=n_attn_layers,
+            fusion_strategy=fusion_strategy,
+            head_hidden_dim=head_hidden_dim,
+            dropout=dropout,
+            mpnn_checkpoint=mpnn_checkpoint,
+            mpnn_ensemble_paths=mpnn_ensemble_paths,
+            mpnn_device=mpnn_device,
+        )
+    else:
+        return LNPModelWithoutMPNN(
+            d_model=d_model,
+            num_heads=num_heads,
+            n_attn_layers=n_attn_layers,
+            fusion_strategy=fusion_strategy,
+            head_hidden_dim=head_hidden_dim,
+            dropout=dropout,
+        )
 
 
 def train_model(
@@ -191,6 +225,11 @@ def main(
     fusion_strategy: str = "attention",
     head_hidden_dim: int = 128,
     dropout: float = 0.1,
+    # MPNN 参数（可选）
+    use_mpnn: bool = False,  # 启用 MPNN，自动从默认路径加载 ensemble
+    mpnn_checkpoint: Optional[str] = None,
+    mpnn_ensemble_paths: Optional[str] = None,  # 逗号分隔的路径列表
+    mpnn_device: str = "cpu",
     # 训练参数
     batch_size: int = 32,
     lr: float = 1e-4,
@@ -201,13 +240,20 @@ def main(
     tune: bool = False,
     n_trials: int = 20,
     epochs_per_trial: int = 30,
+    # 预训练权重加载
+    init_from_pretrain: Optional[Path] = None,
+    load_delivery_head: bool = True,
+    freeze_backbone: bool = False,  # 冻结 backbone，只训练 heads
     # 设备
     device: str = "cuda" if torch.cuda.is_available() else "cpu",
 ):
     """
-    训练 LNP 预测模型。
+    训练 LNP 预测模型（多任务 finetune）。
     
     使用 --tune 启用超参数调优。
+    使用 --init-from-pretrain 从预训练 checkpoint 初始化 backbone。
+    使用 --use-mpnn 启用 MPNN encoder（自动从 models/mpnn/all_amine_split_for_LiON 加载）。
+    使用 --freeze-backbone 冻结 backbone，只训练多任务 heads。
     """
     logger.info(f"Using device: {device}")
     device = torch.device(device)
@@ -258,8 +304,21 @@ def main(
         lr = best_params["lr"]
         weight_decay = best_params["weight_decay"]
     
+    # 解析 MPNN 配置
+    # 优先级：mpnn_checkpoint > mpnn_ensemble_paths > use_mpnn（自动查找）
+    ensemble_paths_list = None
+    if mpnn_ensemble_paths:
+        ensemble_paths_list = mpnn_ensemble_paths.split(",")
+    elif use_mpnn and mpnn_checkpoint is None:
+        # --use-mpnn 但没有指定具体路径，自动查找
+        logger.info(f"Auto-detecting MPNN ensemble from {DEFAULT_MPNN_ENSEMBLE_DIR}")
+        ensemble_paths_list = find_mpnn_ensemble_paths()
+        logger.info(f"Found {len(ensemble_paths_list)} MPNN models")
+    
+    enable_mpnn = mpnn_checkpoint is not None or ensemble_paths_list is not None
+    
     # 创建模型
-    logger.info("Creating model...")
+    logger.info(f"Creating model (use_mpnn={enable_mpnn})...")
     model = create_model(
         d_model=d_model,
         num_heads=num_heads,
@@ -267,11 +326,48 @@ def main(
         fusion_strategy=fusion_strategy,
         head_hidden_dim=head_hidden_dim,
         dropout=dropout,
+        mpnn_checkpoint=mpnn_checkpoint,
+        mpnn_ensemble_paths=ensemble_paths_list,
+        mpnn_device=mpnn_device,
     )
     
+    # 加载预训练权重（如果指定）
+    if init_from_pretrain is not None:
+        logger.info(f"Loading pretrain weights from {init_from_pretrain}")
+        checkpoint = torch.load(init_from_pretrain, map_location="cpu")
+        
+        # 检查配置是否兼容
+        pretrain_config = checkpoint.get("config", {})
+        if pretrain_config.get("d_model") != d_model:
+            logger.warning(
+                f"d_model mismatch: pretrain={pretrain_config.get('d_model')}, "
+                f"current={d_model}. Skipping pretrain loading."
+            )
+        else:
+            # 加载 backbone + (可选) delivery head
+            model.load_pretrain_weights(
+                pretrain_state_dict=checkpoint["model_state_dict"],
+                load_delivery_head=load_delivery_head,
+                strict=False,
+            )
+            logger.success(
+                f"Loaded pretrain weights (backbone + delivery_head={load_delivery_head})"
+            )
+    
+    # 冻结 backbone（如果指定）
+    if freeze_backbone:
+        logger.info("Freezing backbone (token_projector, cross_attention, fusion)...")
+        frozen_count = 0
+        for name, param in model.named_parameters():
+            if name.startswith(("token_projector.", "cross_attention.", "fusion.")):
+                param.requires_grad = False
+                frozen_count += 1
+        logger.info(f"Frozen {frozen_count} parameter tensors")
+    
     # 打印模型信息
-    n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    logger.info(f"Model parameters: {n_params:,}")
+    n_params_total = sum(p.numel() for p in model.parameters())
+    n_params_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logger.info(f"Model parameters: {n_params_total:,} total, {n_params_trainable:,} trainable")
     
     # 训练
     logger.info("Starting training...")
@@ -297,8 +393,10 @@ def main(
             "fusion_strategy": fusion_strategy,
             "head_hidden_dim": head_hidden_dim,
             "dropout": dropout,
+            "use_mpnn": enable_mpnn,
         },
         "best_val_loss": result["best_val_loss"],
+        "init_from_pretrain": str(init_from_pretrain) if init_from_pretrain else None,
     }, model_path)
     logger.success(f"Saved model to {model_path}")
     
