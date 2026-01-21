@@ -43,7 +43,7 @@ def load_model(
     use_mpnn = config.get("use_mpnn", False)
     
     if use_mpnn:
-        # 自动查找 MPNN ensemble
+        # 总是自动查找 MPNN ensemble，避免使用 checkpoint 中的旧绝对路径（可能来自其他机器）
         logger.info("Model was trained with MPNN, auto-detecting ensemble...")
         ensemble_paths = find_mpnn_ensemble_paths()
         logger.info(f"Found {len(ensemble_paths)} MPNN models")

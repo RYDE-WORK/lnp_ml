@@ -86,50 +86,54 @@ MPNN_FLAG = $(if $(USE_MPNN),--use-mpnn,)
 # 例如：make finetune FREEZE_BACKBONE=1
 FREEZE_FLAG = $(if $(FREEZE_BACKBONE),--freeze-backbone,)
 
+# 设备选择：使用 DEVICE=xxx 指定设备
+# 例如：make train DEVICE=cuda:0 或 make test_cv DEVICE=mps
+DEVICE_FLAG = $(if $(DEVICE),--device $(DEVICE),)
+
 ## Pretrain on external data (delivery only)
 .PHONY: pretrain
 pretrain: requirements
-	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.pretrain main $(MPNN_FLAG)
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.pretrain main $(MPNN_FLAG) $(DEVICE_FLAG)
 
 ## Evaluate pretrain model (delivery metrics)
 .PHONY: test_pretrain
 test_pretrain: requirements
-	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.pretrain test $(MPNN_FLAG)
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.pretrain test $(MPNN_FLAG) $(DEVICE_FLAG)
 
 ## Pretrain with cross-validation (5-fold)
 .PHONY: pretrain_cv
 pretrain_cv: requirements
-	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.pretrain_cv main $(MPNN_FLAG)
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.pretrain_cv main $(MPNN_FLAG) $(DEVICE_FLAG)
 
-## Evaluate CV pretrain models on test sets
+## Evaluate CV pretrain models on test sets (auto-detects MPNN from checkpoint)
 .PHONY: test_cv
 test_cv: requirements
-	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.pretrain_cv test $(MPNN_FLAG)
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.pretrain_cv test $(DEVICE_FLAG)
 
 ## Train model (multi-task, from scratch)
 .PHONY: train
 train: requirements
-	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train $(MPNN_FLAG)
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train $(MPNN_FLAG) $(DEVICE_FLAG)
 
 ## Finetune from pretrained checkpoint (use FREEZE_BACKBONE=1 to freeze backbone)
 .PHONY: finetune
 finetune: requirements
-	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train --init-from-pretrain models/pretrain_delivery.pt $(FREEZE_FLAG) $(MPNN_FLAG)
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train --init-from-pretrain models/pretrain_delivery.pt $(FREEZE_FLAG) $(MPNN_FLAG) $(DEVICE_FLAG)
 
 ## Train with hyperparameter tuning
 .PHONY: tune
 tune: requirements
-	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train --tune $(MPNN_FLAG)
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train --tune $(MPNN_FLAG) $(DEVICE_FLAG)
 
 ## Run predictions
 .PHONY: predict
 predict: requirements
-	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.predict
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.predict $(DEVICE_FLAG)
 
-## Test model on test set (with detailed metrics)
+## Test model on test set (with detailed metrics, auto-detects MPNN from checkpoint)
 .PHONY: test
 test: requirements
-	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.predict test
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.predict test $(DEVICE_FLAG)
 
 
 #################################################################################

@@ -1,5 +1,5 @@
 {
-  "data_dir": "/Users/ryde/Documents/workspaces/\u8102\u8d28\u5206\u5b50\u836f\u7269\u9012\u9001\u6027\u80fd\u9884\u6d4b/\u6700\u65b0\u6574\u7406/lnp-ml/data/external/all_amine_split_for_LiON",
+  "data_dir": "/Users/ryde/Code/lnp_ml/data/external/all_amine_split_for_LiON",
   "y_col": "quantified_delivery",
   "n_splits": 5,
   "split_results": {

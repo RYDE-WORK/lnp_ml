@@ -491,7 +491,7 @@ def test(
     all_preds = []
     all_targets = []
     
-    for fold_dir in fold_dirs:
+    for fold_dir in tqdm(fold_dirs, desc="Evaluating folds"):
         fold_idx = int(fold_dir.name.split("_")[1])
         model_path = model_dir / f"fold_{fold_idx}" / "model.pt"
         test_path = fold_dir / "test.parquet"
@@ -509,10 +509,12 @@ def test(
         config = checkpoint["config"]
         
         use_mpnn = config.get("use_mpnn", False)
-        mpnn_paths = config.get("mpnn_ensemble_paths")
         
-        if use_mpnn and not mpnn_paths:
+        # 总是重新查找 MPNN 路径，避免使用 checkpoint 中的旧绝对路径（可能来自其他机器）
+        if use_mpnn:
             mpnn_paths = find_mpnn_ensemble_paths()
+        else:
+            mpnn_paths = None
         
         model = create_model(
             d_model=config["d_model"],
@@ -541,7 +543,8 @@ def test(
         fold_targets = []
         
         with torch.no_grad():
-            for batch in test_loader:
+            pbar = tqdm(test_loader, desc=f"Fold {fold_idx} [Test]", leave=False)
+            for batch in pbar:
                 smiles = batch["smiles"]
                 tabular = {k: v.to(device) for k, v in batch["tabular"].items()}
                 targets = batch["targets"]["delivery"].to(device)
