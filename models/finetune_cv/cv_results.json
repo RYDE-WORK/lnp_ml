@@ -1,0 +1,54 @@
+{
+  "fold_results": [
+    {
+      "fold_idx": 0,
+      "best_val_loss": 6.144314289093018,
+      "epochs_trained": 25,
+      "final_train_loss": 1.4692220211029052
+    },
+    {
+      "fold_idx": 1,
+      "best_val_loss": 8.569346030553183,
+      "epochs_trained": 20,
+      "final_train_loss": 1.5929443359375
+    },
+    {
+      "fold_idx": 2,
+      "best_val_loss": 3.7409281730651855,
+      "epochs_trained": 22,
+      "final_train_loss": 1.9401288827260335
+    },
+    {
+      "fold_idx": 3,
+      "best_val_loss": 3.47284197807312,
+      "epochs_trained": 27,
+      "final_train_loss": 1.8295514345169068
+    },
+    {
+      "fold_idx": 4,
+      "best_val_loss": 2.756531000137329,
+      "epochs_trained": 19,
+      "final_train_loss": 1.9399811571294612
+    }
+  ],
+  "summary": {
+    "val_loss_mean": 4.936792294184367,
+    "val_loss_std": 2.1438440638412697
+  },
+  "config": {
+    "d_model": 256,
+    "num_heads": 8,
+    "n_attn_layers": 4,
+    "fusion_strategy": "attention",
+    "head_hidden_dim": 128,
+    "dropout": 0.1,
+    "use_mpnn": true,
+    "lr": 0.0001,
+    "weight_decay": 1e-05,
+    "batch_size": 32,
+    "epochs": 100,
+    "patience": 15,
+    "init_from_pretrain": "models/pretrain_delivery.pt",
+    "freeze_backbone": false
+  }
+}

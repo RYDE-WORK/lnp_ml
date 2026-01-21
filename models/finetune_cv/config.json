@@ -1,0 +1,16 @@
+{
+  "d_model": 256,
+  "num_heads": 8,
+  "n_attn_layers": 4,
+  "fusion_strategy": "attention",
+  "head_hidden_dim": 128,
+  "dropout": 0.1,
+  "use_mpnn": true,
+  "lr": 0.0001,
+  "weight_decay": 1e-05,
+  "batch_size": 32,
+  "epochs": 100,
+  "patience": 15,
+  "init_from_pretrain": "models/pretrain_delivery.pt",
+  "freeze_backbone": false
+}

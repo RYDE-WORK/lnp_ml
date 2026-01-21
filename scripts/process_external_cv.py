@@ -151,18 +151,18 @@ def get_feature_columns() -> List[str]:
 @app.command()
 def main(
     data_dir: Path = EXTERNAL_DATA_DIR / "all_amine_split_for_LiON",
-    output_dir: Path = PROCESSED_DATA_DIR / "cv",
+    output_dir: Path = PROCESSED_DATA_DIR / "pretrain_cv",
     n_folds: int = 5,
 ):
     """
     处理 cross-validation 数据，生成模型所需的 parquet 文件。
     
     输出结构:
-        - processed/cv/fold_0/train.parquet
-        - processed/cv/fold_0/valid.parquet
-        - processed/cv/fold_0/test.parquet
-        - processed/cv/fold_1/...
-        - processed/cv/feature_columns.txt
+        - processed/pretrain_cv/fold_0/train.parquet
+        - processed/pretrain_cv/fold_0/valid.parquet
+        - processed/pretrain_cv/fold_0/test.parquet
+        - processed/pretrain_cv/fold_1/...
+        - processed/pretrain_cv/feature_columns.txt
     """
     logger.info(f"Processing CV data from {data_dir}")
     

@@ -78,6 +78,11 @@ data_pretrain: requirements
 data_pretrain_cv: requirements
 	$(PYTHON_INTERPRETER) scripts/process_external_cv.py
 
+## Process internal data with amine-based CV splitting (interim -> processed/cv)
+.PHONY: data_cv
+data_cv: requirements
+	$(PYTHON_INTERPRETER) scripts/process_data_cv.py
+
 # MPNN 支持：使用 USE_MPNN=1 启用 MPNN encoder
 # 例如：make pretrain USE_MPNN=1
 MPNN_FLAG = $(if $(USE_MPNN),--use-mpnn,)
@@ -119,6 +124,16 @@ train: requirements
 .PHONY: finetune
 finetune: requirements
 	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train --init-from-pretrain models/pretrain_delivery.pt $(FREEZE_FLAG) $(MPNN_FLAG) $(DEVICE_FLAG)
+
+## Finetune with cross-validation on internal data (5-fold, amine-based split) with pretrained weights
+.PHONY: finetune_cv
+finetune_cv: requirements
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train_cv main --init-from-pretrain models/pretrain_delivery.pt $(FREEZE_FLAG) $(MPNN_FLAG) $(DEVICE_FLAG)
+
+## Evaluate CV finetuned models on test sets (auto-detects MPNN from checkpoint)
+.PHONY: test_cv
+test_cv: requirements
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train_cv test $(DEVICE_FLAG)
 
 ## Train with hyperparameter tuning
 .PHONY: tune

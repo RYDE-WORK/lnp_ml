@@ -1,0 +1,89 @@
+# Feature columns configuration
+
+# SMILES
+smiles
+
+# comp token [5]
+Cationic_Lipid_to_mRNA_weight_ratio
+Cationic_Lipid_Mol_Ratio
+Phospholipid_Mol_Ratio
+Cholesterol_Mol_Ratio
+PEG_Lipid_Mol_Ratio
+
+# phys token [12]
+Purity_Pure
+Purity_Crude
+Mix_type_Microfluidic
+Mix_type_Pipetting
+Cargo_type_mRNA
+Cargo_type_pDNA
+Cargo_type_siRNA
+Target_or_delivered_gene_FFL
+Target_or_delivered_gene_Peptide_barcode
+Target_or_delivered_gene_hEPO
+Target_or_delivered_gene_FVII
+Target_or_delivered_gene_GFP
+
+# help token [4]
+Helper_lipid_ID_DOPE
+Helper_lipid_ID_DOTAP
+Helper_lipid_ID_DSPC
+Helper_lipid_ID_MDOA
+
+# exp token [32]
+Model_type_A549
+Model_type_BDMC
+Model_type_BMDM
+Model_type_HBEC_ALI
+Model_type_HEK293T
+Model_type_HeLa
+Model_type_IGROV1
+Model_type_Mouse
+Model_type_RAW264p7
+Delivery_target_body
+Delivery_target_dendritic_cell
+Delivery_target_generic_cell
+Delivery_target_liver
+Delivery_target_lung
+Delivery_target_lung_epithelium
+Delivery_target_macrophage
+Delivery_target_muscle
+Delivery_target_spleen
+Route_of_administration_in_vitro
+Route_of_administration_intramuscular
+Route_of_administration_intratracheal
+Route_of_administration_intravenous
+Batch_or_individual_or_barcoded_Barcoded
+Batch_or_individual_or_barcoded_Individual
+Value_name_log_luminescence
+Value_name_luminescence
+Value_name_FFL_silencing
+Value_name_Peptide_abundance
+Value_name_hEPO
+Value_name_FVII_silencing
+Value_name_GFP_delivery
+Value_name_Discretized_luminescence
+
+# Targets
+## Regression
+size
+quantified_delivery
+## PDI classification
+PDI_0_0to0_2
+PDI_0_2to0_3
+PDI_0_3to0_4
+PDI_0_4to0_5
+## EE classification
+Encapsulation_Efficiency_EE<50
+Encapsulation_Efficiency_50<=EE<80
+Encapsulation_Efficiency_80<EE<=100
+## Toxic
+toxic
+## Biodistribution
+Biodistribution_lymph_nodes
+Biodistribution_heart
+Biodistribution_liver
+Biodistribution_spleen
+Biodistribution_lung
+Biodistribution_kidney
+Biodistribution_muscle
