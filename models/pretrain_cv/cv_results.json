@@ -1,0 +1,68 @@
+{
+  "fold_results": [
+    {
+      "fold_idx": 0,
+      "best_val_loss": 0.8423525478929029,
+      "best_val_rmse": 0.9331341268749274,
+      "best_val_r2": 0.2524544731269053,
+      "epochs_trained": 19
+    },
+    {
+      "fold_idx": 1,
+      "best_val_loss": 0.7009093638175043,
+      "best_val_rmse": 0.888277234295553,
+      "best_val_r2": 0.19871749006650596,
+      "epochs_trained": 16
+    },
+    {
+      "fold_idx": 2,
+      "best_val_loss": 0.7235820254347072,
+      "best_val_rmse": 0.8821482466127635,
+      "best_val_r2": 0.25251501039626645,
+      "epochs_trained": 26
+    },
+    {
+      "fold_idx": 3,
+      "best_val_loss": 0.7233524476227008,
+      "best_val_rmse": 0.8598248435346856,
+      "best_val_r2": 0.2173208126626488,
+      "epochs_trained": 11
+    },
+    {
+      "fold_idx": 4,
+      "best_val_loss": 0.7125106603565553,
+      "best_val_rmse": 0.9044179837028969,
+      "best_val_r2": 0.05955105566092167,
+      "epochs_trained": 11
+    }
+  ],
+  "summary": {
+    "val_loss_mean": 0.7405414090248741,
+    "val_loss_std": 0.051584902755892316,
+    "val_rmse_mean": 0.8935604870041655,
+    "val_rmse_std": 0.024413946167786103,
+    "val_r2_mean": 0.19611176838264963,
+    "val_r2_std": 0.07136002759441169
+  },
+  "config": {
+    "d_model": 256,
+    "num_heads": 8,
+    "n_attn_layers": 4,
+    "fusion_strategy": "attention",
+    "head_hidden_dim": 128,
+    "dropout": 0.1,
+    "use_mpnn": true,
+    "mpnn_ensemble_paths": [
+      "/Users/ryde/Documents/workspaces/\u8102\u8d28\u5206\u5b50\u836f\u7269\u9012\u9001\u6027\u80fd\u9884\u6d4b/\u6700\u65b0\u6574\u7406/lnp-ml/models/mpnn/all_amine_split_for_LiON/cv_0/fold_0/model_0/model.pt",
+      "/Users/ryde/Documents/workspaces/\u8102\u8d28\u5206\u5b50\u836f\u7269\u9012\u9001\u6027\u80fd\u9884\u6d4b/\u6700\u65b0\u6574\u7406/lnp-ml/models/mpnn/all_amine_split_for_LiON/cv_1/fold_0/model_0/model.pt",
+      "/Users/ryde/Documents/workspaces/\u8102\u8d28\u5206\u5b50\u836f\u7269\u9012\u9001\u6027\u80fd\u9884\u6d4b/\u6700\u65b0\u6574\u7406/lnp-ml/models/mpnn/all_amine_split_for_LiON/cv_2/fold_0/model_0/model.pt",
+      "/Users/ryde/Documents/workspaces/\u8102\u8d28\u5206\u5b50\u836f\u7269\u9012\u9001\u6027\u80fd\u9884\u6d4b/\u6700\u65b0\u6574\u7406/lnp-ml/models/mpnn/all_amine_split_for_LiON/cv_3/fold_0/model_0/model.pt",
+      "/Users/ryde/Documents/workspaces/\u8102\u8d28\u5206\u5b50\u836f\u7269\u9012\u9001\u6027\u80fd\u9884\u6d4b/\u6700\u65b0\u6574\u7406/lnp-ml/models/mpnn/all_amine_split_for_LiON/cv_4/fold_0/model_0/model.pt"
+    ],
+    "lr": 0.0001,
+    "weight_decay": 1e-05,
+    "batch_size": 64,
+    "epochs": 50,
+    "patience": 10
+  }
+}
