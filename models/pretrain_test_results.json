@@ -1,0 +1,18 @@
+{
+  "model_path": "/Users/ryde/Documents/workspaces/\u8102\u8d28\u5206\u5b50\u836f\u7269\u9012\u9001\u6027\u80fd\u9884\u6d4b/\u6700\u65b0\u6574\u7406/lnp-ml/models/pretrain_delivery.pt",
+  "val_path": "/Users/ryde/Documents/workspaces/\u8102\u8d28\u5206\u5b50\u836f\u7269\u9012\u9001\u6027\u80fd\u9884\u6d4b/\u6700\u65b0\u6574\u7406/lnp-ml/data/processed/val_pretrain.parquet",
+  "n_samples": 969,
+  "metrics": {
+    "mse": 0.5384107828140259,
+    "rmse": 0.7337648007461423,
+    "mae": 0.5158410668373108,
+    "r2": 0.4877620374678041,
+    "correlation": 0.7059544816157891
+  },
+  "statistics": {
+    "y_true_mean": 0.009126194752752781,
+    "y_true_std": 1.0252292156219482,
+    "y_pred_mean": 0.008337541483342648,
+    "y_pred_std": 0.8293642997741699
+  }
+}
