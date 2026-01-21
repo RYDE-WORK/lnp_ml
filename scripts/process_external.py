@@ -18,7 +18,7 @@ app = typer.Typer()
 def main(
     input_path: Path = EXTERNAL_DATA_DIR / "all_data_LiON.csv",
     output_dir: Path = PROCESSED_DATA_DIR,
-    train_ratio: float = 0.9,
+    train_ratio: float = 0.7,
     seed: int = 42,
 ):
     """
