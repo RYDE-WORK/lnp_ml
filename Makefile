@@ -74,9 +74,9 @@ data_pretrain: requirements
 	$(PYTHON_INTERPRETER) scripts/process_external.py
 
 ## Process CV data for cross-validation pretrain (external/all_amine_split_for_LiON -> processed/cv)
-.PHONY: data_cv
-data_cv: requirements
-	$(PYTHON_INTERPRETER) scripts/process_data_cv.py
+.PHONY: data_pretrain_cv
+data_pretrain_cv: requirements
+	$(PYTHON_INTERPRETER) scripts/process_external_cv.py
 
 # MPNN 支持：使用 USE_MPNN=1 启用 MPNN encoder
 # 例如：make pretrain USE_MPNN=1
@@ -106,8 +106,8 @@ pretrain_cv: requirements
 	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.pretrain_cv main $(MPNN_FLAG) $(DEVICE_FLAG)
 
 ## Evaluate CV pretrain models on test sets (auto-detects MPNN from checkpoint)
-.PHONY: test_cv
-test_cv: requirements
+.PHONY: test_pretrain_cv
+test_pretrain_cv: requirements
 	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.pretrain_cv test $(DEVICE_FLAG)
 
 ## Train model (multi-task, from scratch)

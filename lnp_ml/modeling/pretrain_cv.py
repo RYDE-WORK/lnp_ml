@@ -271,7 +271,7 @@ def create_model(
 
 @app.command()
 def main(
-    data_dir: Path = PROCESSED_DATA_DIR / "cv",
+    data_dir: Path = PROCESSED_DATA_DIR / "pretrain_cv",
     output_dir: Path = MODELS_DIR / "pretrain_cv",
     # 模型参数
     d_model: int = 256,
@@ -322,7 +322,7 @@ def main(
     
     if not fold_dirs:
         logger.error(f"No fold_* directories found in {data_dir}")
-        logger.info("Please run 'make data_cv' first to process CV data.")
+        logger.info("Please run 'make data_pretrain_cv' first to process CV data.")
         raise typer.Exit(1)
     
     logger.info(f"Found {len(fold_dirs)} folds: {[d.name for d in fold_dirs]}")
@@ -464,7 +464,7 @@ def main(
 
 @app.command()
 def test(
-    data_dir: Path = PROCESSED_DATA_DIR / "cv",
+    data_dir: Path = PROCESSED_DATA_DIR / "pretrain_cv",
     model_dir: Path = MODELS_DIR / "pretrain_cv",
     output_path: Path = MODELS_DIR / "pretrain_cv" / "test_results.json",
     batch_size: int = 64,
