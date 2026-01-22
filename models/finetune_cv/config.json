@@ -11,6 +11,6 @@
   "batch_size": 32,
   "epochs": 100,
   "patience": 15,
-  "init_from_pretrain": "models/pretrain_delivery.pt",
+  "init_from_pretrain": null,
   "freeze_backbone": false
 }

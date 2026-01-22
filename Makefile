@@ -130,6 +130,12 @@ finetune: requirements
 finetune_cv: requirements
 	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train_cv main --init-from-pretrain models/pretrain_delivery.pt $(FREEZE_FLAG) $(MPNN_FLAG) $(DEVICE_FLAG)
 
+## Train with cross-validation on internal data only (5-fold, amine-based split)
+.PHONY: train_cv
+train_cv: requirements
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train_cv main $(FREEZE_FLAG) $(MPNN_FLAG) $(DEVICE_FLAG)
+
+
 ## Evaluate CV finetuned models on test sets (auto-detects MPNN from checkpoint)
 .PHONY: test_cv
 test_cv: requirements
