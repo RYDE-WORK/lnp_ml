@@ -391,12 +391,29 @@ def test(
     
     使用每个 fold 的模型在对应的测试集上评估，然后汇总结果。
     """
+    from scipy.special import rel_entr
     from sklearn.metrics import (
         mean_squared_error,
         mean_absolute_error,
         r2_score,
         accuracy_score,
+        precision_score,
+        recall_score,
+        f1_score,
     )
+    
+    def kl_divergence(p: np.ndarray, q: np.ndarray, eps: float = 1e-10) -> float:
+        """计算 KL 散度 KL(p || q)"""
+        p = np.clip(p, eps, 1.0)
+        q = np.clip(q, eps, 1.0)
+        return float(np.sum(rel_entr(p, q), axis=-1).mean())
+    
+    def js_divergence(p: np.ndarray, q: np.ndarray, eps: float = 1e-10) -> float:
+        """计算 JS 散度"""
+        p = np.clip(p, eps, 1.0)
+        q = np.clip(q, eps, 1.0)
+        m = 0.5 * (p + q)
+        return float(0.5 * (np.sum(rel_entr(p, m), axis=-1) + np.sum(rel_entr(q, m), axis=-1)).mean())
     
     logger.info(f"Using device: {device}")
     device = torch.device(device)
@@ -413,10 +430,10 @@ def test(
     fold_results = []
     # 用于汇总所有 fold 的预测
     all_preds = {
-        "size": [], "delivery": [], "pdi": [], "ee": [], "toxic": []
+        "size": [], "delivery": [], "pdi": [], "ee": [], "toxic": [], "biodist": []
     }
     all_targets = {
-        "size": [], "delivery": [], "pdi": [], "ee": [], "toxic": []
+        "size": [], "delivery": [], "pdi": [], "ee": [], "toxic": [], "biodist": []
     }
     
     for fold_dir in tqdm(fold_dirs, desc="Evaluating folds"):
@@ -522,6 +539,14 @@ def test(
                     toxic_targets = targets["toxic"][mask].cpu().numpy().astype(int)
                     fold_preds["toxic"].extend(toxic_preds.tolist())
                     fold_targets["toxic"].extend(toxic_targets.tolist())
+                
+                # Biodist (distribution)
+                if "biodist" in masks and masks["biodist"].any():
+                    mask = masks["biodist"]
+                    biodist_preds = outputs["biodist"][mask].cpu().numpy()
+                    biodist_targets = targets["biodist"][mask].cpu().numpy()
+                    fold_preds["biodist"].extend(biodist_preds.tolist())
+                    fold_targets["biodist"].extend(biodist_targets.tolist())
         
         # 计算当前 fold 的指标
         fold_metrics = {"fold_idx": fold_idx, "n_samples": len(test_df)}
@@ -546,7 +571,20 @@ def test(
                 fold_metrics[task] = {
                     "n": len(p),
                     "accuracy": float(accuracy_score(t, p)),
+                    "precision": float(precision_score(t, p, average="macro", zero_division=0)),
+                    "recall": float(recall_score(t, p, average="macro", zero_division=0)),
+                    "f1": float(f1_score(t, p, average="macro", zero_division=0)),
                 }
+        
+        # 分布任务指标
+        if fold_preds["biodist"]:
+            p = np.array(fold_preds["biodist"])
+            t = np.array(fold_targets["biodist"])
+            fold_metrics["biodist"] = {
+                "n": len(p),
+                "kl_divergence": kl_divergence(t, p),
+                "js_divergence": js_divergence(t, p),
+            }
         
         fold_results.append(fold_metrics)
         
@@ -564,6 +602,10 @@ def test(
         for task in ["pdi", "ee", "toxic"]:
             if task in fold_metrics and isinstance(fold_metrics[task], dict):
                 log_parts.append(f"{task}_acc={fold_metrics[task]['accuracy']:.4f}")
+                log_parts.append(f"{task}_f1={fold_metrics[task]['f1']:.4f}")
+        if "biodist" in fold_metrics and isinstance(fold_metrics["biodist"], dict):
+            log_parts.append(f"biodist_KL={fold_metrics['biodist']['kl_divergence']:.4f}")
+            log_parts.append(f"biodist_JS={fold_metrics['biodist']['js_divergence']:.4f}")
         logger.info(", ".join(log_parts))
     
     # 计算跨 fold 汇总统计
@@ -581,11 +623,25 @@ def test(
     
     for task in ["pdi", "ee", "toxic"]:
         accs = [r[task]["accuracy"] for r in fold_results if task in r and isinstance(r[task], dict)]
+        f1s = [r[task]["f1"] for r in fold_results if task in r and isinstance(r[task], dict)]
         if accs:
             summary_stats[task] = {
                 "accuracy_mean": float(np.mean(accs)),
                 "accuracy_std": float(np.std(accs)),
+                "f1_mean": float(np.mean(f1s)),
+                "f1_std": float(np.std(f1s)),
             }
+    
+    # 分布任务汇总
+    kls = [r["biodist"]["kl_divergence"] for r in fold_results if "biodist" in r and isinstance(r["biodist"], dict)]
+    jss = [r["biodist"]["js_divergence"] for r in fold_results if "biodist" in r and isinstance(r["biodist"], dict)]
+    if kls:
+        summary_stats["biodist"] = {
+            "kl_mean": float(np.mean(kls)),
+            "kl_std": float(np.std(kls)),
+            "js_mean": float(np.mean(jss)),
+            "js_std": float(np.std(jss)),
+        }
     
     # 计算整体 pooled 指标
     overall = {}
@@ -608,7 +664,20 @@ def test(
             overall[task] = {
                 "n_samples": len(p),
                 "accuracy": float(accuracy_score(t, p)),
+                "precision": float(precision_score(t, p, average="macro", zero_division=0)),
+                "recall": float(recall_score(t, p, average="macro", zero_division=0)),
+                "f1": float(f1_score(t, p, average="macro", zero_division=0)),
             }
+    
+    # 分布任务
+    if all_preds["biodist"]:
+        p = np.array(all_preds["biodist"])
+        t = np.array(all_targets["biodist"])
+        overall["biodist"] = {
+            "n_samples": len(p),
+            "kl_divergence": kl_divergence(t, p),
+            "js_divergence": js_divergence(t, p),
+        }
     
     # 打印汇总结果
     logger.info("\n" + "=" * 60)
@@ -619,15 +688,19 @@ def test(
     for task, stats in summary_stats.items():
         if "rmse_mean" in stats:
             logger.info(f"  {task}: RMSE={stats['rmse_mean']:.4f}±{stats['rmse_std']:.4f}, R²={stats['r2_mean']:.4f}±{stats['r2_std']:.4f}")
-        else:
-            logger.info(f"  {task}: Accuracy={stats['accuracy_mean']:.4f}±{stats['accuracy_std']:.4f}")
+        elif "accuracy_mean" in stats:
+            logger.info(f"  {task}: Accuracy={stats['accuracy_mean']:.4f}±{stats['accuracy_std']:.4f}, F1={stats['f1_mean']:.4f}±{stats['f1_std']:.4f}")
+        elif "kl_mean" in stats:
+            logger.info(f"  {task}: KL={stats['kl_mean']:.4f}±{stats['kl_std']:.4f}, JS={stats['js_mean']:.4f}±{stats['js_std']:.4f}")
     
     logger.info(f"\n[Overall (all samples pooled)]")
     for task, metrics in overall.items():
         if "rmse" in metrics:
             logger.info(f"  {task} (n={metrics['n_samples']}): RMSE={metrics['rmse']:.4f}, MAE={metrics['mae']:.4f}, R²={metrics['r2']:.4f}")
-        else:
-            logger.info(f"  {task} (n={metrics['n_samples']}): Accuracy={metrics['accuracy']:.4f}")
+        elif "accuracy" in metrics:
+            logger.info(f"  {task} (n={metrics['n_samples']}): Accuracy={metrics['accuracy']:.4f}, Precision={metrics['precision']:.4f}, Recall={metrics['recall']:.4f}, F1={metrics['f1']:.4f}")
+        elif "kl_divergence" in metrics:
+            logger.info(f"  {task} (n={metrics['n_samples']}): KL={metrics['kl_divergence']:.4f}, JS={metrics['js_divergence']:.4f}")
     
     # 保存结果
     results = {

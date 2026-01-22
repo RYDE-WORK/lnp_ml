@@ -217,14 +217,30 @@ def test(
     """
     import json
     import numpy as np
+    from scipy.special import rel_entr
     from sklearn.metrics import (
         mean_squared_error,
         mean_absolute_error,
         r2_score,
         accuracy_score,
-        classification_report,
+        precision_score,
+        recall_score,
+        f1_score,
     )
     from lnp_ml.modeling.trainer import validate
+    
+    def kl_divergence(p: np.ndarray, q: np.ndarray, eps: float = 1e-10) -> float:
+        """计算 KL 散度 KL(p || q)"""
+        p = np.clip(p, eps, 1.0)
+        q = np.clip(q, eps, 1.0)
+        return float(np.sum(rel_entr(p, q), axis=-1).mean())
+    
+    def js_divergence(p: np.ndarray, q: np.ndarray, eps: float = 1e-10) -> float:
+        """计算 JS 散度"""
+        p = np.clip(p, eps, 1.0)
+        q = np.clip(q, eps, 1.0)
+        m = 0.5 * (p + q)
+        return float(0.5 * (np.sum(rel_entr(p, m), axis=-1) + np.sum(rel_entr(q, m), axis=-1)).mean())
     
     logger.info(f"Using device: {device}")
     device_obj = torch.device(device)
@@ -287,6 +303,9 @@ def test(
             y_pred = np.array(predictions["pdi"])[mask]
             results["detailed_metrics"]["pdi"] = {
                 "accuracy": float(accuracy_score(y_true, y_pred)),
+                "precision": float(precision_score(y_true, y_pred, average="macro", zero_division=0)),
+                "recall": float(recall_score(y_true, y_pred, average="macro", zero_division=0)),
+                "f1": float(f1_score(y_true, y_pred, average="macro", zero_division=0)),
             }
     
     # 分类指标：EE
@@ -299,6 +318,9 @@ def test(
             y_pred = np.array(predictions["ee"])[mask]
             results["detailed_metrics"]["ee"] = {
                 "accuracy": float(accuracy_score(y_true, y_pred)),
+                "precision": float(precision_score(y_true, y_pred, average="macro", zero_division=0)),
+                "recall": float(recall_score(y_true, y_pred, average="macro", zero_division=0)),
+                "f1": float(f1_score(y_true, y_pred, average="macro", zero_division=0)),
             }
     
     # 分类指标：toxic
@@ -309,6 +331,28 @@ def test(
             y_pred = np.array(predictions["toxic"])[mask.values]
             results["detailed_metrics"]["toxic"] = {
                 "accuracy": float(accuracy_score(y_true, y_pred)),
+                "precision": float(precision_score(y_true, y_pred, average="macro", zero_division=0)),
+                "recall": float(recall_score(y_true, y_pred, average="macro", zero_division=0)),
+                "f1": float(f1_score(y_true, y_pred, average="macro", zero_division=0)),
+            }
+    
+    # 分布指标：biodist
+    biodist_cols = [
+        "Biodistribution_lymph_nodes", "Biodistribution_heart", "Biodistribution_liver",
+        "Biodistribution_spleen", "Biodistribution_lung", "Biodistribution_kidney", "Biodistribution_muscle"
+    ]
+    if all(c in test_df.columns for c in biodist_cols):
+        biodist_true = test_df[biodist_cols].values
+        biodist_pred = np.array(predictions["biodist"])
+        # mask: 有效样本是 sum > 0 且无 NaN
+        mask = (biodist_true.sum(axis=1) > 0) & (~np.isnan(biodist_true).any(axis=1))
+        if mask.any():
+            y_true = biodist_true[mask]
+            y_pred = biodist_pred[mask]
+            results["detailed_metrics"]["biodist"] = {
+                "n_samples": int(mask.sum()),
+                "kl_divergence": kl_divergence(y_true, y_pred),
+                "js_divergence": js_divergence(y_true, y_pred),
             }
     
     # 打印结果
