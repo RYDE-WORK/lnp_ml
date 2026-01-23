@@ -78,10 +78,13 @@ data_pretrain: requirements
 data_pretrain_cv: requirements
 	$(PYTHON_INTERPRETER) scripts/process_external_cv.py
 
-## Process internal data with amine-based CV splitting (interim -> processed/cv)
+## Process internal data with CV splitting (interim -> processed/cv)
+## Use SCAFFOLD_SPLIT=1 to enable amine-based scaffold splitting (default: random shuffle)
+SCAFFOLD_SPLIT_FLAG = $(if $(filter 1,$(SCAFFOLD_SPLIT)),--scaffold-split,)
+
 .PHONY: data_cv
 data_cv: requirements
-	$(PYTHON_INTERPRETER) scripts/process_data_cv.py
+	$(PYTHON_INTERPRETER) scripts/process_data_cv.py $(SCAFFOLD_SPLIT_FLAG)
 
 # MPNN 支持：使用 USE_MPNN=1 启用 MPNN encoder
 # 例如：make pretrain USE_MPNN=1
