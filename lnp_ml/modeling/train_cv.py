@@ -22,6 +22,7 @@ from lnp_ml.modeling.trainer import (
     EarlyStopping,
     LossWeights,
 )
+from lnp_ml.modeling.visualization import plot_multitask_loss_curves
 
 
 # MPNN ensemble 默认路径
@@ -157,6 +158,15 @@ def train_fold(
     history_path = fold_output_dir / "history.json"
     with open(history_path, "w") as f:
         json.dump(history, f, indent=2)
+    
+    # 绘制多任务 loss 曲线图
+    loss_plot_path = fold_output_dir / "loss_curves.png"
+    plot_multitask_loss_curves(
+        history=history,
+        output_path=loss_plot_path,
+        title=f"Fold {fold_idx} Multi-task Loss Curves",
+    )
+    logger.info(f"Saved fold {fold_idx} loss curves to {loss_plot_path}")
     
     return {
         "fold_idx": fold_idx,

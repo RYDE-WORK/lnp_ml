@@ -19,6 +19,7 @@ from lnp_ml.modeling.trainer import (
     EarlyStopping,
     LossWeights,
 )
+from lnp_ml.modeling.visualization import plot_multitask_loss_curves
 
 # MPNN ensemble 默认路径
 DEFAULT_MPNN_ENSEMBLE_DIR = MODELS_DIR / "mpnn" / "all_amine_split_for_LiON"
@@ -405,6 +406,15 @@ def main(
     with open(history_path, "w") as f:
         json.dump(result["history"], f, indent=2)
     logger.success(f"Saved training history to {history_path}")
+    
+    # 绘制多任务 loss 曲线图
+    loss_plot_path = output_dir / "loss_curves.png"
+    plot_multitask_loss_curves(
+        history=result["history"],
+        output_path=loss_plot_path,
+        title="Multi-task Training Loss Curves",
+    )
+    logger.success(f"Saved loss curves plot to {loss_plot_path}")
     
     logger.success(f"Training complete! Best val_loss: {result['best_val_loss']:.4f}")
 
