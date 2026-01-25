@@ -68,6 +68,11 @@ clean_data: requirements
 data: requirements
 	$(PYTHON_INTERPRETER) scripts/process_data.py
 
+## Process dataset for final training (interim -> processed/final, train:val=9:1, no test)
+.PHONY: data_final
+data_final: requirements
+	$(PYTHON_INTERPRETER) scripts/process_data_final.py
+
 ## Process external data for pretrain (external -> processed)
 .PHONY: data_pretrain
 data_pretrain: requirements
@@ -127,6 +132,16 @@ train: requirements
 .PHONY: finetune
 finetune: requirements
 	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train --init-from-pretrain models/pretrain_delivery.pt $(FREEZE_FLAG) $(MPNN_FLAG) $(DEVICE_FLAG)
+
+## Final training using all data (train:val=9:1, no test set), with pretrained weights
+.PHONY: train_final
+train_final: requirements
+	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.train \
+		--train-path data/processed/final/train.parquet \
+		--val-path data/processed/final/val.parquet \
+		--output-dir models/final \
+		--init-from-pretrain models/pretrain_delivery.pt \
+		$(FREEZE_FLAG) $(MPNN_FLAG) $(DEVICE_FLAG)
 
 ## Finetune with cross-validation on internal data (5-fold, amine-based split) with pretrained weights
 .PHONY: finetune_cv
