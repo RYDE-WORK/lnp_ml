@@ -174,6 +174,12 @@ predict: requirements
 test: requirements
 	$(PYTHON_INTERPRETER) -m lnp_ml.modeling.predict test $(DEVICE_FLAG)
 
+## Formulation optimization: find optimal LNP formulation for target organ
+## Usage: make optimize SMILES="CC(C)..." ORGAN=liver
+.PHONY: optimize
+optimize: requirements
+	$(PYTHON_INTERPRETER) -m app.optimize --smiles "$(SMILES)" --organ $(ORGAN) $(DEVICE_FLAG)
+
 
 #################################################################################
 # Self Documenting Commands                                                     #

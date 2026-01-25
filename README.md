@@ -156,5 +156,12 @@ python -m lnp_ml.modeling.train \
     └── plots.py                <- Code to create visualizations
 ```
 
+
+### 配方筛选
+
+```
+make optimize SMILES="CC(C)NCCNC(C)C" ORGAN=liver
+```
+
 --------
 
