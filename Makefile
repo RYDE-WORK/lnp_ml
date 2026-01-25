@@ -180,6 +180,25 @@ test: requirements
 optimize: requirements
 	$(PYTHON_INTERPRETER) -m app.optimize --smiles "$(SMILES)" --organ $(ORGAN) $(DEVICE_FLAG)
 
+## Start FastAPI backend server (port 8000)
+.PHONY: api
+api: requirements
+	uvicorn app.api:app --host 0.0.0.0 --port 8000 --reload
+
+## Start Streamlit frontend app (port 8501)
+.PHONY: webapp
+webapp: requirements
+	streamlit run app/app.py --server.port 8501
+
+## Start both API and webapp (run in separate terminals)
+.PHONY: serve
+serve:
+	@echo "请在两个终端分别运行:"
+	@echo "  终端 1: make api"
+	@echo "  终端 2: make webapp"
+	@echo ""
+	@echo "然后访问: http://localhost:8501"
+
 
 #################################################################################
 # Self Documenting Commands                                                     #
