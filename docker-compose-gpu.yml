@@ -8,7 +8,6 @@ services:
     container_name: lnp-api
     environment:
       - MODEL_PATH=/app/models/final/model.pt
-      - DEVICE=cpu
     volumes:
       # 挂载模型目录以便更新模型
       - ./models/final:/app/models/final:ro
@@ -20,6 +19,13 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   # Streamlit 前端服务
   streamlit:
@@ -46,4 +52,3 @@ services:
 networks:
   default:
     name: lnp-network
-
