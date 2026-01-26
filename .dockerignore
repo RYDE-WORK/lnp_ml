@@ -1,0 +1,75 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.pixi/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.cursor/
+
+# Git
+.git/
+.gitignore
+
+# Data (不需要打包到镜像)
+data/
+!data/.gitkeep
+
+# Notebooks
+notebooks/
+*.ipynb
+
+# Documentation
+docs/
+
+# Reports
+reports/
+
+# References
+references/
+
+# Scripts (训练脚本不需要)
+scripts/
+
+# Lock files
+pixi.lock
+
+# Tests
+tests/
+.pytest_cache/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+
+# Models (will be mounted as volume or copied explicitly)
+# Note: models/final/ is copied in Dockerfile
+models/finetune_cv/
+models/pretrain_cv/
+models/mpnn/
+models/*.pt
+models/*.json
+!models/final/
+

@@ -1,0 +1,20 @@
+# 严格遵循 pixi.toml 的依赖版本
+# 注意: lnp_ml 本地包在 Dockerfile 中单独安装
+
+# conda dependencies (in pixi.toml [dependencies])
+loguru
+tqdm
+typer
+
+# pypi dependencies (in pixi.toml [pypi-dependencies])
+chemprop==1.7.0
+setuptools
+pandas>=2.0.3,<3
+openpyxl>=3.1.5,<4
+python-dotenv>=1.0.1,<2
+pyarrow>=17.0.0,<18
+fastparquet>=2024.2.0,<2025
+fastapi>=0.124.4,<0.125
+streamlit>=1.40.1,<2
+httpx>=0.28.1,<0.29
+uvicorn>=0.33.0,<0.34

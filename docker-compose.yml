@@ -1,0 +1,60 @@
+services:
+  # FastAPI 后端服务
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    container_name: lnp-api
+    # ports:
+    #   - "8000:8000"
+    environment:
+      - MODEL_PATH=/app/models/final/model.pt
+      - DEVICE=cpu
+    volumes:
+      # 挂载模型目录以便更新模型
+      - ./models/final:/app/models/final:ro
+      - ./models/mpnn:/app/models/mpnn:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # 如果有 NVIDIA GPU，取消下面的注释
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # Streamlit 前端服务
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: streamlit
+    container_name: lnp-streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      # 连接到 API 服务（使用 Docker 内部网络）
+      - API_URL=http://api:8000
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  default:
+    name: lnp-network
+

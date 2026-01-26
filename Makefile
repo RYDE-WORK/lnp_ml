@@ -201,6 +201,48 @@ serve:
 
 
 #################################################################################
+# DOCKER COMMANDS                                                               #
+#################################################################################
+
+## Build Docker images
+.PHONY: docker-build
+docker-build:
+	docker compose build
+
+## Start all services with Docker Compose
+.PHONY: docker-up
+docker-up:
+	docker compose up -d
+
+## Stop all Docker services
+.PHONY: docker-down
+docker-down:
+	docker compose down
+
+## View Docker logs
+.PHONY: docker-logs
+docker-logs:
+	docker compose logs -f
+
+## Build and start all services
+.PHONY: docker-serve
+docker-serve: docker-build docker-up
+	@echo ""
+	@echo "🚀 服务已启动!"
+	@echo "   - API:       http://localhost:8000"
+	@echo "   - Web 应用:  http://localhost:8501"
+	@echo ""
+	@echo "查看日志: make docker-logs"
+	@echo "停止服务: make docker-down"
+
+## Clean Docker resources (images, volumes, etc.)
+.PHONY: docker-clean
+docker-clean:
+	docker compose down -v --rmi local
+	docker system prune -f
+
+
+#################################################################################
 # Self Documenting Commands                                                     #
 #################################################################################
 

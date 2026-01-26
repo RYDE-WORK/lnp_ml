@@ -3,9 +3,13 @@ Streamlit 配方优化交互界面
 
 启动应用:
     streamlit run app/app.py
+
+Docker 环境变量:
+    API_URL: API 服务地址 (默认: http://localhost:8000)
 """
 
 import io
+import os
 from datetime import datetime
 
 import httpx
@@ -14,7 +18,8 @@ import streamlit as st
 
 # ============ 配置 ============
 
-API_URL = "http://localhost:8000"
+# 从环境变量读取 API 地址，支持 Docker 环境
+API_URL = os.environ.get("API_URL", "http://localhost:8000")
 
 AVAILABLE_ORGANS = [
     "liver",
