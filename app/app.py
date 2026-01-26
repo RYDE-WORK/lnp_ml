@@ -27,13 +27,13 @@ AVAILABLE_ORGANS = [
 ]
 
 ORGAN_LABELS = {
-    "liver": "🫀 肝脏 (Liver)",
-    "spleen": "🟣 脾脏 (Spleen)",
-    "lung": "🫁 肺 (Lung)",
-    "heart": "❤️ 心脏 (Heart)",
-    "kidney": "🫘 肾脏 (Kidney)",
-    "muscle": "💪 肌肉 (Muscle)",
-    "lymph_nodes": "🔵 淋巴结 (Lymph Nodes)",
+    "liver": "肝脏 (Liver)",
+    "spleen": "脾脏 (Spleen)",
+    "lung": "肺 (Lung)",
+    "heart": "心脏 (Heart)",
+    "kidney": "肾脏 (Kidney)",
+    "muscle": "肌肉 (Muscle)",
+    "lymph_nodes": "淋巴结 (Lymph Nodes)",
 }
 
 # ============ 页面配置 ============
@@ -146,19 +146,20 @@ def format_results_dataframe(results: dict) -> pd.DataFrame:
     for f in formulations:
         row = {
             "排名": f["rank"],
-            f"Biodist_{target_organ}": f"{f['target_biodist']:.4f}",
-            "阳离子脂质/mRNA": f["cationic_lipid_to_mrna_ratio"],
-            "阳离子脂质(mol)": f["cationic_lipid_mol_ratio"],
-            "磷脂(mol)": f["phospholipid_mol_ratio"],
-            "胆固醇(mol)": f["cholesterol_mol_ratio"],
-            "PEG脂质(mol)": f["peg_lipid_mol_ratio"],
+            # f"{target_organ}分布": f"{f['target_biodist']*100:.2f}%",
+            f"{target_organ}分布": f"{f['target_biodist']*100:.8f}%",
+            "阳离子脂质/mRNA比例": f["cationic_lipid_to_mrna_ratio"],
+            "阳离子脂质(mol)比例": f["cationic_lipid_mol_ratio"],
+            "磷脂(mol)比例": f["phospholipid_mol_ratio"],
+            "胆固醇(mol)比例": f["cholesterol_mol_ratio"],
+            "PEG脂质(mol)比例": f["peg_lipid_mol_ratio"],
             "辅助脂质": f["helper_lipid"],
             "给药途径": f["route"],
         }
         # 添加其他器官的 biodist
         for organ, value in f["all_biodist"].items():
             if organ != target_organ:
-                row[f"Biodist_{organ}"] = f"{value:.4f}"
+                row[f"{organ}分布"] = f"{value*100:.2f}%"
         rows.append(row)
     
     return pd.DataFrame(rows)
@@ -184,7 +185,7 @@ def main():
     
     # ========== 侧边栏 ==========
     with st.sidebar:
-        st.header("⚙️ 参数设置")
+        # st.header("⚙️ 参数设置")
         
         # API 状态
         if api_online:
@@ -193,7 +194,7 @@ def main():
             st.error("🔴 API 服务离线")
             st.info("请先启动 API 服务:\n```\nuvicorn app.api:app --port 8000\n```")
         
-        st.divider()
+        # st.divider()
         
         # SMILES 输入
         st.subheader("🔬 分子结构")
@@ -206,18 +207,18 @@ def main():
         )
         
         # 示例 SMILES
-        with st.expander("📋 示例 SMILES"):
-            example_smiles = {
-                "DLin-MC3-DMA": "CC(C)=CCCC(C)=CCCC(C)=CCN(C)CCCCCCCCOC(=O)CCCCCCC/C=C\\CCCCCCCC",
-                "简单胺": "CC(C)NCCNC(C)C",
-                "长链胺": "CCCCCCCCCCCCNCCNCCCCCCCCCCCC",
-            }
-            for name, smi in example_smiles.items():
-                if st.button(f"使用 {name}", key=f"example_{name}"):
-                    st.session_state["smiles_input"] = smi
-                    st.rerun()
+        # with st.expander("📋 示例 SMILES"):
+        #     example_smiles = {
+        #         "DLin-MC3-DMA": "CC(C)=CCCC(C)=CCCC(C)=CCN(C)CCCCCCCCOC(=O)CCCCCCC/C=C\\CCCCCCCC",
+        #         "简单胺": "CC(C)NCCNC(C)C",
+        #         "长链胺": "CCCCCCCCCCCCNCCNCCCCCCCCCCCC",
+        #     }
+        #     for name, smi in example_smiles.items():
+        #         if st.button(f"使用 {name}", key=f"example_{name}"):
+        #             st.session_state["smiles_input"] = smi
+        #             st.rerun()
         
-        st.divider()
+        # st.divider()
         
         # 目标器官选择
         st.subheader("🎯 目标器官")
@@ -228,7 +229,7 @@ def main():
             index=0,
         )
         
-        st.divider()
+        # st.divider()
         
         # 高级选项
         with st.expander("🔧 高级选项"):
@@ -294,8 +295,8 @@ def main():
         with col2:
             best_score = results["formulations"][0]["target_biodist"]
             st.metric(
-                "最优 Biodistribution",
-                f"{best_score:.4f}",
+                "最优分布",
+                f"{best_score*100:.2f}%",
             )
         
         with col3:
@@ -333,61 +334,61 @@ def main():
         )
         
         # 详细信息
-        with st.expander("🔍 查看最优配方详情"):
-            best = results["formulations"][0]
+        # with st.expander("🔍 查看最优配方详情"):
+        #     best = results["formulations"][0]
             
-            col1, col2 = st.columns(2)
+        #     col1, col2 = st.columns(2)
             
-            with col1:
-                st.markdown("**配方参数**")
-                st.json({
-                    "阳离子脂质/mRNA 比例": best["cationic_lipid_to_mrna_ratio"],
-                    "阳离子脂质 (mol%)": best["cationic_lipid_mol_ratio"],
-                    "磷脂 (mol%)": best["phospholipid_mol_ratio"],
-                    "胆固醇 (mol%)": best["cholesterol_mol_ratio"],
-                    "PEG 脂质 (mol%)": best["peg_lipid_mol_ratio"],
-                    "辅助脂质": best["helper_lipid"],
-                    "给药途径": best["route"],
-                })
+        #     with col1:
+        #         st.markdown("**配方参数**")
+        #         st.json({
+        #             "阳离子脂质/mRNA 比例": best["cationic_lipid_to_mrna_ratio"],
+        #             "阳离子脂质 (mol%)": best["cationic_lipid_mol_ratio"],
+        #             "磷脂 (mol%)": best["phospholipid_mol_ratio"],
+        #             "胆固醇 (mol%)": best["cholesterol_mol_ratio"],
+        #             "PEG 脂质 (mol%)": best["peg_lipid_mol_ratio"],
+        #             "辅助脂质": best["helper_lipid"],
+        #             "给药途径": best["route"],
+        #         })
             
-            with col2:
-                st.markdown("**各器官 Biodistribution 预测**")
-                biodist_df = pd.DataFrame([
-                    {"器官": ORGAN_LABELS.get(k, k), "Biodistribution": f"{v:.4f}"}
-                    for k, v in best["all_biodist"].items()
-                ])
-                st.dataframe(biodist_df, hide_index=True, use_container_width=True)
+        #     with col2:
+        #         st.markdown("**各器官 Biodistribution 预测**")
+        #         biodist_df = pd.DataFrame([
+        #             {"器官": ORGAN_LABELS.get(k, k), "Biodistribution": f"{v:.4f}"}
+        #             for k, v in best["all_biodist"].items()
+        #         ])
+        #         st.dataframe(biodist_df, hide_index=True, use_container_width=True)
     
     else:
         # 欢迎信息
         st.info("👈 请在左侧输入 SMILES 并选择目标器官，然后点击「开始配方优选」")
         
         # 使用说明
-        with st.expander("📖 使用说明"):
-            st.markdown("""
-            ### 如何使用
+        # with st.expander("📖 使用说明"):
+        #     st.markdown("""
+        #     ### 如何使用
             
-            1. **输入 SMILES**: 在左侧输入框中输入阳离子脂质的 SMILES 字符串
-            2. **选择目标器官**: 选择您希望优化的器官靶向
-            3. **点击优选**: 系统将自动搜索最优配方组合
-            4. **查看结果**: 右侧将显示 Top-20 优选配方
-            5. **导出数据**: 点击导出按钮将结果保存为 CSV 文件
+        #     1. **输入 SMILES**: 在左侧输入框中输入阳离子脂质的 SMILES 字符串
+        #     2. **选择目标器官**: 选择您希望优化的器官靶向
+        #     3. **点击优选**: 系统将自动搜索最优配方组合
+        #     4. **查看结果**: 右侧将显示 Top-20 优选配方
+        #     5. **导出数据**: 点击导出按钮将结果保存为 CSV 文件
             
-            ### 优化参数
+        #     ### 优化参数
             
-            系统会优化以下配方参数:
-            - **阳离子脂质/mRNA 比例**: 0.05 - 0.30
-            - **阳离子脂质 mol 比例**: 0.05 - 0.80
-            - **磷脂 mol 比例**: 0.00 - 0.80
-            - **胆固醇 mol 比例**: 0.00 - 0.80
-            - **PEG 脂质 mol 比例**: 0.00 - 0.05
-            - **辅助脂质**: DOPE / DSPC / DOTAP
-            - **给药途径**: 静脉注射 / 肌肉注射
+        #     系统会优化以下配方参数:
+        #     - **阳离子脂质/mRNA 比例**: 0.05 - 0.30
+        #     - **阳离子脂质 mol 比例**: 0.05 - 0.80
+        #     - **磷脂 mol 比例**: 0.00 - 0.80
+        #     - **胆固醇 mol 比例**: 0.00 - 0.80
+        #     - **PEG 脂质 mol 比例**: 0.00 - 0.05
+        #     - **辅助脂质**: DOPE / DSPC / DOTAP
+        #     - **给药途径**: 静脉注射 / 肌肉注射
             
-            ### 约束条件
+        #     ### 约束条件
             
-            mol 比例之和 = 1 (阳离子脂质 + 磷脂 + 胆固醇 + PEG 脂质)
-            """)
+        #     mol 比例之和 = 1 (阳离子脂质 + 磷脂 + 胆固醇 + PEG 脂质)
+        #     """)
 
 
 if __name__ == "__main__":
